@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Heart } from 'lucide-react';
 
 export default function PulsatingHeart() {
@@ -22,6 +22,11 @@ export default function PulsatingHeart() {
   const [isDragging, setIsDragging] = useState(false);
   const [showThermometerButton, setShowThermometerButton] = useState(false);
   const [thermometerRevealed, setThermometerRevealed] = useState(false);
+  const lastYRef = useRef(null);
+  const lastXRef = useRef(null);
+  const verticalMoveCountRef = useRef(0);
+
+
 
   useEffect(() => {
     if (firstClickTime && !showButton) {
@@ -43,39 +48,90 @@ export default function PulsatingHeart() {
     }
   }, [firstMouseMove, showFinalButton]);
 
+  // useEffect(() => {
+  //   if (revealed && !finalReveal) {
+  //     const handleMouseMove = (e) => {
+  //       if (!firstMouseMove) {
+  //         setFirstMouseMove(true);
+  //       }
+        
+  //       setMousePos({ x: e.clientX, y: e.clientY });
+        
+  //       const yDiff = Math.abs(e.clientY - lastMouseY);
+  //       const xDiff = Math.abs(e.clientX - mousePos.x);
+        
+  //       if (yDiff > xDiff && yDiff > 20) {
+  //         setVerticalMoveCount(prev => prev + 1);
+          
+  //         if (verticalMoveCount > 3) {
+  //           setShowInappropriateMsg(true);
+  //           setTimeout(() => {
+  //             setShowInappropriateMsg(false);
+  //           }, 5000);
+  //         }
+  //       }
+        
+  //       setLastMouseY(e.clientY);
+  //     };
+
+  //     window.addEventListener('mousemove', handleMouseMove);
+      
+  //     return () => {
+  //       window.removeEventListener('mousemove', handleMouseMove);
+  //     };
+  //   }
+  // }, [revealed, lastMouseY, verticalMoveCount, mousePos.x, finalReveal, firstMouseMove]);
+
+
   useEffect(() => {
     if (revealed && !finalReveal) {
-      const handleMouseMove = (e) => {
-        if (!firstMouseMove) {
-          setFirstMouseMove(true);
-        }
-        
-        setMousePos({ x: e.clientX, y: e.clientY });
-        
-        const yDiff = Math.abs(e.clientY - lastMouseY);
-        const xDiff = Math.abs(e.clientX - mousePos.x);
-        
-        if (yDiff > xDiff && yDiff > 20) {
-          setVerticalMoveCount(prev => prev + 1);
-          
-          if (verticalMoveCount > 3) {
-            setShowInappropriateMsg(true);
-            setTimeout(() => {
-              setShowInappropriateMsg(false);
-            }, 5000);
+      const handleMove = (e) => {
+        // stop page scrolling while tracking
+        if (e.cancelable) e.preventDefault();
+
+        if (!firstMouseMove) setFirstMouseMove(true);
+
+        const x = e.clientX ?? (e.touches?.[0]?.clientX);
+        const y = e.clientY ?? (e.touches?.[0]?.clientY);
+        if (typeof x !== 'number' || typeof y !== 'number') return;
+
+        setMousePos({ x, y });
+
+        // --- "inappropriate" vertical movement detection ---
+        const lastY = lastYRef.current;
+        const lastX = lastXRef.current;
+
+        if (lastY !== null && lastX !== null) {
+          const yDiff = Math.abs(y - lastY);
+          const xDiff = Math.abs(x - lastX);
+
+          if (yDiff > xDiff && yDiff > 20) {
+            verticalMoveCountRef.current += 1;
+
+            if (verticalMoveCountRef.current > 3) {
+              setShowInappropriateMsg(true);
+
+              // reset so it can trigger again later if you want
+              verticalMoveCountRef.current = 0;
+
+              setTimeout(() => setShowInappropriateMsg(false), 2500);
+            }
           }
         }
-        
-        setLastMouseY(e.clientY);
+
+        lastYRef.current = y;
+        lastXRef.current = x;
       };
 
-      window.addEventListener('mousemove', handleMouseMove);
-      
+      window.addEventListener('pointermove', handleMove, { passive: false });
+
       return () => {
-        window.removeEventListener('mousemove', handleMouseMove);
+        window.removeEventListener('pointermove', handleMove);
       };
     }
-  }, [revealed, lastMouseY, verticalMoveCount, mousePos.x, finalReveal, firstMouseMove]);
+  }, [revealed, finalReveal, firstMouseMove]);
+
+
 
   const handleUnlock = () => {
     setUnlocking(true);
@@ -202,7 +258,7 @@ export default function PulsatingHeart() {
           <div className="relative mb-4">
             <Heart className="w-32 h-32 text-white fill-white opacity-80 animate-pulse" />
             <div className="absolute inset-0 flex items-center justify-center">
-              <span className="text-6xl">😈</span>
+              {/* <span className="text-6xl">😈</span> */}
             </div>
           </div>
           
@@ -466,7 +522,7 @@ export default function PulsatingHeart() {
                 My eyes when I see you
               </p>
           
-          <div className="absolute inset-0 flex items-center justify-center gap-32 animate-fadeIn" style={{animationDelay: '0.3s', animationFillMode: 'both'}}>
+          <div className="absolute inset-0 flex items-center justify-center gap-32 animate-fadeIn touch-none"style={{animationDelay: '0.3s', animationFillMode: 'both'}}>
             <div className="relative w-32 h-32 bg-white rounded-full flex items-center justify-center">
               {!finalReveal ? (
                 <div 
