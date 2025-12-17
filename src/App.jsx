@@ -416,6 +416,8 @@ export default function PulsatingHeart() {
                 <Heart className="absolute bottom-1/4 left-1/2 w-12 h-12 text-rose-200 fill-rose-200 opacity-70 animate-float glow-heart" />
                 <Heart className="absolute top-2/3 right-1/2 w-16 h-16 text-pink-300 fill-pink-300 opacity-60 animate-float-delayed glow-heart" />
               </div>
+              <div className="glitter-layer" aria-hidden="true"></div>
+
               
               <div className="bg-white bg-opacity-20 backdrop-blur-sm rounded-3xl p-12 max-w-3xl shadow-2xl border-4 border-white border-opacity-30 relative z-10">
                 <div className="flex justify-center mb-6">
@@ -779,6 +781,51 @@ export default function PulsatingHeart() {
         .animate-pulse-fast {
           animation: pulse-fast 0.5s ease-in-out infinite;
         }
+      /* ===== Final reveal animation ===== */
+      @keyframes finalReveal {
+        0% {
+          opacity: 0;
+          transform: translateY(18px) scale(0.98);
+          filter: blur(6px);
+        }
+        100% {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+          filter: blur(0);
+        }
+      }
+
+      .animate-fadeIn-slow {
+        animation: finalReveal 1.2s ease-out forwards;
+      }
+
+      /* ===== Glitter overlay ===== */
+      .glitter-layer {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        z-index: 5;
+        opacity: 0.6;
+        mix-blend-mode: screen;
+        background:
+          radial-gradient(circle at 10% 20%, rgba(255,255,255,0.9) 0 1px, transparent 2px),
+          radial-gradient(circle at 30% 70%, rgba(255,255,255,0.8) 0 1px, transparent 2px),
+          radial-gradient(circle at 60% 40%, rgba(255,255,255,0.7) 0 1px, transparent 2px),
+          radial-gradient(circle at 80% 20%, rgba(255,255,255,0.9) 0 1px, transparent 2px),
+          radial-gradient(circle at 90% 80%, rgba(255,255,255,0.8) 0 1px, transparent 2px);
+        animation: glitterDrift 6s ease-in-out infinite,
+                  glitterTwinkle 1.6s ease-in-out infinite;
+      }
+
+      @keyframes glitterDrift {
+        0%, 100% { transform: translate3d(0, 0, 0); }
+        50% { transform: translate3d(-12px, -18px, 0); }
+      }
+
+      @keyframes glitterTwinkle {
+        0%, 100% { opacity: 0.35; filter: blur(0); }
+        50% { opacity: 0.75; filter: blur(0.6px); }
+      }
       `}</style>
     </div>
   );
