@@ -195,8 +195,9 @@ export default function PulsatingHeart() {
         const rect = thermometer.getBoundingClientRect();
         const clientY = e.touches ? e.touches[0].clientY : e.clientY;
         const y = clientY - rect.top;
-        const percentage = Math.max(0, Math.min(75, 100 - (y / rect.height) * 100));
-        setTemperature(percentage);
+        const target = Math.max(0, Math.min(100, 100 - (y / rect.height) * 100));
+        // Ease toward the target so the fill doesn't jump too fast
+        setTemperature((prev) => prev + (target - prev) * 0.3);
       }
     }
   };
@@ -476,7 +477,10 @@ export default function PulsatingHeart() {
                     className={`absolute bottom-0 left-0 right-0 rounded-full transition-all ${
                       thermometerRevealed ? 'bg-gradient-to-t from-red-600 via-orange-500 to-yellow-400 duration-700' : 'bg-gradient-to-t from-red-600 to-orange-400 duration-300'
                     }`}
-                    style={{ height: thermometerRevealed ? `${(temperature / 100) * 100}%` : `${(temperature / 75) * 100}%` }}
+                    style={{ 
+                      height: thermometerRevealed ? `${temperature}%` : `${(temperature / 75) * 100}%`,
+                      transition: isDragging ? 'none' : undefined
+                    }}
                   ></div>
                   
                   <div className="absolute top-4 left-1/2 transform -translate-x-1/2 text-gray-800 font-bold text-sm">
