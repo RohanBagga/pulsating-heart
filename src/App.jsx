@@ -23,6 +23,7 @@ export default function PulsatingHeart() {
   const [isDragging, setIsDragging] = useState(false);
   const [showThermometerButton, setShowThermometerButton] = useState(false);
   const [thermometerRevealed, setThermometerRevealed] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
   const lastYRef = useRef(null);
   const lastXRef = useRef(null);
   const verticalMoveCountRef = useRef(0);
@@ -192,7 +193,7 @@ export default function PulsatingHeart() {
     if (showFinalMessage) {
       const audio = new Audio(christmasSong);
       audio.loop = true;
-      audio.volume = 0.35;
+      audio.volume = isMuted ? 0 : 0.35;
       finalSongRef.current = audio;
 
       audio.play().catch(() => {
@@ -201,15 +202,25 @@ export default function PulsatingHeart() {
 
       return () => {
         audio.pause();
+        audio.currentTime = 0;
+        finalSongRef.current = null;
       };
     }
 
     // stop if we leave the final screen
     if (finalSongRef.current) {
       finalSongRef.current.pause();
+      finalSongRef.current.currentTime = 0;
       finalSongRef.current = null;
     }
-  }, [showFinalMessage]);
+  }, [showFinalMessage, isMuted]);
+
+  useEffect(() => {
+    if (finalSongRef.current) {
+      finalSongRef.current.muted = isMuted;
+      finalSongRef.current.volume = isMuted ? 0 : 0.35;
+    }
+  }, [isMuted]);
 
 
   const handleUnlock = () => {
@@ -305,6 +316,39 @@ export default function PulsatingHeart() {
     setTimeout(() => {
       setShowFinalMessage(true);
     }, 4000);
+  };
+
+  const handleReplay = () => {
+    if (finalSongRef.current) {
+      finalSongRef.current.pause();
+      finalSongRef.current.currentTime = 0;
+      finalSongRef.current = null;
+    }
+
+    setWelcomeScreen(true);
+    setUnlocking(false);
+    setShowButton(false);
+    setRevealed(false);
+    setClicks(0);
+    setFirstClickTime(null);
+    setShowInappropriateMsg(false);
+    setLastMouseY(0);
+    setVerticalMoveCount(0);
+    setShowFinalButton(false);
+    setFinalReveal(false);
+    setFirstMouseMove(false);
+    setShowFinalMessage(false);
+    setShowThermometer(false);
+    setTemperature(50);
+    setIsDragging(false);
+    setShowThermometerButton(false);
+    setThermometerRevealed(false);
+    setIsMuted(false);
+    setMousePos({ x: 0, y: 0 });
+    pointerTargetRef.current = {
+      x: typeof window !== 'undefined' ? window.innerWidth / 2 : 0,
+      y: typeof window !== 'undefined' ? window.innerHeight / 2 : 0
+    };
   };
 
   useEffect(() => {
@@ -500,6 +544,21 @@ export default function PulsatingHeart() {
               </div>
               <div className="glitter-layer" aria-hidden="true"></div>
 
+              <div className="absolute top-4 right-4 md:top-6 md:right-6 flex flex-col items-end gap-2 md:flex-row md:items-center z-30">
+                <button
+                  onClick={() => setIsMuted(prev => !prev)}
+                  className="px-4 py-2 bg-white/90 text-red-600 font-semibold rounded-full shadow-lg border border-white/70 hover:bg-white transition"
+                >
+                  {isMuted ? 'Unmute Music' : 'Mute Music'}
+                </button>
+                <button
+                  onClick={handleReplay}
+                  className="px-4 py-2 bg-white/90 text-red-600 font-semibold rounded-full shadow-lg border border-white/70 hover:bg-white transition"
+                >
+                  Replay
+                </button>
+              </div>
+
               
               <div className="bg-white bg-opacity-20 backdrop-blur-sm rounded-3xl p-12 max-w-3xl shadow-2xl border-4 border-white border-opacity-30 relative z-10">
                 <div className="flex justify-center mb-6">
@@ -515,7 +574,10 @@ export default function PulsatingHeart() {
                   Bless we have many more to share together.
                 </p>
                 <p className="text-white text-xl md:text-2xl font-semibold text-center italic">
-                  Love,your roro xxx
+                  Love,
+                </p>
+                <p className="text-white text-xl md:text-2xl font-semibold text-center italic">
+                  Your Roro
                 </p>
                 <div className="flex justify-center gap-8 mt-8">
                   <Heart className="w-8 h-8 text-pink-200 fill-pink-200 animate-pulse glow-heart" />
