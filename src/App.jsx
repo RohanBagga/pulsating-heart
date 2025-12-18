@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Heart } from 'lucide-react';
+import christmasSong from './Mariah Carey - Oh Santa_ Official Lyric Video ft Ariana Grande Jennifer Hudson.mp3';
 
 export default function PulsatingHeart() {
   const [welcomeScreen, setWelcomeScreen] = useState(true);
@@ -22,9 +23,17 @@ export default function PulsatingHeart() {
   const [isDragging, setIsDragging] = useState(false);
   const [showThermometerButton, setShowThermometerButton] = useState(false);
   const [thermometerRevealed, setThermometerRevealed] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
   const lastYRef = useRef(null);
   const lastXRef = useRef(null);
   const verticalMoveCountRef = useRef(0);
+  const pointerTargetRef = useRef({
+    x: typeof window !== 'undefined' ? window.innerWidth / 2 : 0,
+    y: typeof window !== 'undefined' ? window.innerHeight / 2 : 0
+  });
+  const rafIdRef = useRef(null);
+  const lastFrameRef = useRef(null);
+  const finalSongRef = useRef(null);
 
 
 
@@ -95,7 +104,7 @@ export default function PulsatingHeart() {
         const y = e.clientY ?? (e.touches?.[0]?.clientY);
         if (typeof x !== 'number' || typeof y !== 'number') return;
 
-        setMousePos({ x, y });
+        pointerTargetRef.current = { x, y };
 
         // --- "inappropriate" vertical movement detection ---
         const lastY = lastYRef.current;
@@ -131,6 +140,87 @@ export default function PulsatingHeart() {
     }
   }, [revealed, finalReveal, firstMouseMove]);
 
+  useEffect(() => {
+    if (!(revealed && !finalReveal)) return;
+
+    // jump to wherever the target currently is so there's no initial snap
+    setMousePos(pointerTargetRef.current);
+
+    const tick = (time) => {
+      if (lastFrameRef.current === null) {
+        lastFrameRef.current = time;
+      }
+
+      const dt = Math.min(64, time - lastFrameRef.current); // clamp to avoid giant steps
+      lastFrameRef.current = time;
+
+      setMousePos(prev => {
+        const { x: targetX, y: targetY } = pointerTargetRef.current;
+        const dx = targetX - prev.x;
+        const dy = targetY - prev.y;
+        const dist = Math.hypot(dx, dy);
+
+        if (dist < 0.01) return prev;
+
+        // time-based max speed with a small catch-up factor so it remains smooth but responsive
+        const dtSec = dt / 1000;
+        const maxSpeed = 1800; // px per second
+        const catchup = 0.08;  // fraction of remaining distance to add per frame
+
+        const step = Math.min(dist, maxSpeed * dtSec + dist * catchup);
+        const ratio = step / dist;
+
+        const nextX = prev.x + dx * ratio;
+        const nextY = prev.y + dy * ratio;
+        return { x: nextX, y: nextY };
+      });
+
+      rafIdRef.current = requestAnimationFrame(tick);
+    };
+
+    rafIdRef.current = requestAnimationFrame(tick);
+
+    return () => {
+      if (rafIdRef.current) {
+        cancelAnimationFrame(rafIdRef.current);
+      }
+      lastFrameRef.current = null;
+    };
+  }, [revealed, finalReveal]);
+
+  useEffect(() => {
+    // Play/stop the Christmas song on the final message screen
+    if (showFinalMessage) {
+      const audio = new Audio(christmasSong);
+      audio.loop = true;
+      audio.volume = isMuted ? 0 : 0.35;
+      finalSongRef.current = audio;
+
+      audio.play().catch(() => {
+        // ignore autoplay failures; user interaction usually allows it
+      });
+
+      return () => {
+        audio.pause();
+        audio.currentTime = 0;
+        finalSongRef.current = null;
+      };
+    }
+
+    // stop if we leave the final screen
+    if (finalSongRef.current) {
+      finalSongRef.current.pause();
+      finalSongRef.current.currentTime = 0;
+      finalSongRef.current = null;
+    }
+  }, [showFinalMessage, isMuted]);
+
+  useEffect(() => {
+    if (finalSongRef.current) {
+      finalSongRef.current.muted = isMuted;
+      finalSongRef.current.volume = isMuted ? 0 : 0.35;
+    }
+  }, [isMuted]);
 
 
   const handleUnlock = () => {
@@ -195,8 +285,11 @@ export default function PulsatingHeart() {
         const rect = thermometer.getBoundingClientRect();
         const clientY = e.touches ? e.touches[0].clientY : e.clientY;
         const y = clientY - rect.top;
-        const percentage = Math.max(0, Math.min(75, 100 - (y / rect.height) * 100));
-        setTemperature(percentage);
+        const rawPercent = Math.max(0, Math.min(100, 100 - (y / rect.height) * 100));
+        const maxCap = thermometerRevealed ? 100 : 75;
+        const target = Math.min(rawPercent, maxCap);
+        // Ease toward the target so the fill doesn't jump too fast
+        setTemperature((prev) => prev + (target - prev) * 0.3);
       }
     }
   };
@@ -223,6 +316,39 @@ export default function PulsatingHeart() {
     setTimeout(() => {
       setShowFinalMessage(true);
     }, 4000);
+  };
+
+  const handleReplay = () => {
+    if (finalSongRef.current) {
+      finalSongRef.current.pause();
+      finalSongRef.current.currentTime = 0;
+      finalSongRef.current = null;
+    }
+
+    setWelcomeScreen(true);
+    setUnlocking(false);
+    setShowButton(false);
+    setRevealed(false);
+    setClicks(0);
+    setFirstClickTime(null);
+    setShowInappropriateMsg(false);
+    setLastMouseY(0);
+    setVerticalMoveCount(0);
+    setShowFinalButton(false);
+    setFinalReveal(false);
+    setFirstMouseMove(false);
+    setShowFinalMessage(false);
+    setShowThermometer(false);
+    setTemperature(50);
+    setIsDragging(false);
+    setShowThermometerButton(false);
+    setThermometerRevealed(false);
+    setIsMuted(false);
+    setMousePos({ x: 0, y: 0 });
+    pointerTargetRef.current = {
+      x: typeof window !== 'undefined' ? window.innerWidth / 2 : 0,
+      y: typeof window !== 'undefined' ? window.innerHeight / 2 : 0
+    };
   };
 
   useEffect(() => {
@@ -401,7 +527,7 @@ export default function PulsatingHeart() {
       )}
 
       {revealed && (
-        <div className="absolute inset-0 flex items-center justify-center bg-red-500 animate-bgFadeIn">
+        <div className="absolute inset-0 flex items-center justify-center bg-red-500 animate-bgFadeIn sparkle-bg">
           {showFinalMessage ? (
             <div className="flex flex-col items-center justify-center px-8 animate-fadeIn-slow relative">
               <div className="absolute inset-0 overflow-hidden">
@@ -418,6 +544,21 @@ export default function PulsatingHeart() {
               </div>
               <div className="glitter-layer" aria-hidden="true"></div>
 
+              <div className="absolute top-4 right-4 md:top-6 md:right-6 flex flex-col items-end gap-2 md:flex-row md:items-center z-30">
+                <button
+                  onClick={() => setIsMuted(prev => !prev)}
+                  className="px-4 py-2 bg-white/90 text-red-600 font-semibold rounded-full shadow-lg border border-white/70 hover:bg-white transition"
+                >
+                  {isMuted ? 'Unmute Music' : 'Mute Music'}
+                </button>
+                <button
+                  onClick={handleReplay}
+                  className="px-4 py-2 bg-white/90 text-red-600 font-semibold rounded-full shadow-lg border border-white/70 hover:bg-white transition"
+                >
+                  Replay
+                </button>
+              </div>
+
               
               <div className="bg-white bg-opacity-20 backdrop-blur-sm rounded-3xl p-12 max-w-3xl shadow-2xl border-4 border-white border-opacity-30 relative z-10">
                 <div className="flex justify-center mb-6">
@@ -433,7 +574,10 @@ export default function PulsatingHeart() {
                   Bless we have many more to share together.
                 </p>
                 <p className="text-white text-xl md:text-2xl font-semibold text-center italic">
-                  Love, your roro xxx
+                  Love,
+                </p>
+                <p className="text-white text-xl md:text-2xl font-semibold text-center italic">
+                  Your Roro
                 </p>
                 <div className="flex justify-center gap-8 mt-8">
                   <Heart className="w-8 h-8 text-pink-200 fill-pink-200 animate-pulse glow-heart" />
@@ -443,7 +587,11 @@ export default function PulsatingHeart() {
               </div>
             </div>
           ) : showThermometer ? (
-            <div className="flex flex-col items-center justify-center gap-8 animate-fadeIn relative">
+            <div
+              className={`flex flex-col items-center gap-8 animate-fadeIn relative w-full h-full ${
+                thermometerRevealed ? 'justify-start pt-10 pb-6' : 'justify-center'
+              }`}
+            >
               {thermometerRevealed && temperature >= 95 && (
                 <>
                   <div className="absolute inset-0 animate-fire-burst pointer-events-none">
@@ -464,7 +612,7 @@ export default function PulsatingHeart() {
                 How hot I think you are 🔥
               </p>
               
-              <div className="relative flex flex-col items-center z-10">
+              <div className={`relative flex flex-col items-center z-10 ${thermometerRevealed ? 'mt-2' : ''}`}>
                 <div 
                   className={`thermometer-container relative bg-white rounded-full shadow-2xl transition-all duration-1000 ${
                     thermometerRevealed ? 'h-[500px]' : 'h-80'
@@ -476,7 +624,10 @@ export default function PulsatingHeart() {
                     className={`absolute bottom-0 left-0 right-0 rounded-full transition-all ${
                       thermometerRevealed ? 'bg-gradient-to-t from-red-600 via-orange-500 to-yellow-400 duration-700' : 'bg-gradient-to-t from-red-600 to-orange-400 duration-300'
                     }`}
-                    style={{ height: thermometerRevealed ? `${(temperature / 100) * 100}%` : `${(temperature / 75) * 100}%` }}
+                    style={{ 
+                      height: thermometerRevealed ? `${temperature}%` : `${(temperature / 75) * 100}%`,
+                      transition: isDragging ? 'none' : undefined
+                    }}
                   ></div>
                   
                   <div className="absolute top-4 left-1/2 transform -translate-x-1/2 text-gray-800 font-bold text-sm">
@@ -509,14 +660,18 @@ export default function PulsatingHeart() {
                 </p>
               </div>
               
-              {showThermometerButton && !thermometerRevealed && (
+              <div className="mt-4 h-16 flex items-center justify-center">
                 <button
                   onClick={handleThermometerReveal}
-                  className="px-6 md:px-8 py-3 md:py-4 bg-white text-red-600 font-bold text-base md:text-lg rounded-full shadow-2xl hover:bg-red-50 hover:scale-105 transition-all duration-300 animate-fadeIn border-2 border-red-300 mt-4"
+                  className={`px-6 md:px-8 py-3 md:py-4 bg-white text-red-600 font-bold text-base md:text-lg rounded-full shadow-2xl border-2 border-red-300 transition-all duration-300
+                    ${showThermometerButton && !thermometerRevealed
+                      ? 'opacity-100 translate-y-0 hover:bg-red-50 hover:scale-105'
+                      : 'opacity-0 -translate-y-2 pointer-events-none'}
+                  `}
                 >
                   Reveal the Truth
                 </button>
-              )}
+              </div>
             </div>
           ) : (
             <>
@@ -826,6 +981,25 @@ export default function PulsatingHeart() {
         0%, 100% { opacity: 0.35; filter: blur(0); }
         50% { opacity: 0.75; filter: blur(0.6px); }
       }
+
+      /* ===== Sparkly background (final screen) ===== */
+      .sparkle-bg {
+        background-color: #ef4444; /* tailwind red-500 */
+        background-image:
+          radial-gradient(circle at 20% 20%, rgba(255,255,255,0.18) 0 10px, transparent 14px),
+          radial-gradient(circle at 80% 30%, rgba(255,255,255,0.12) 0 8px, transparent 12px),
+          radial-gradient(circle at 40% 70%, rgba(255,255,255,0.16) 0 9px, transparent 13px),
+          radial-gradient(circle at 70% 80%, rgba(255,255,255,0.14) 0 11px, transparent 15px),
+          radial-gradient(circle at 55% 40%, rgba(255,255,255,0.2) 0 6px, transparent 10px);
+        background-size: 280px 280px, 320px 320px, 260px 260px, 340px 340px, 300px 300px;
+        animation: sparkleDrift 12s ease-in-out infinite alternate;
+      }
+
+      @keyframes sparkleDrift {
+        0% { background-position: 0 0, 50px 20px, -40px 80px, 30px -30px, 10px 40px; }
+        100% { background-position: -40px 40px, -20px 60px, 30px 10px, -50px 50px, 60px -20px; }
+      }
+
       `}</style>
     </div>
   );
